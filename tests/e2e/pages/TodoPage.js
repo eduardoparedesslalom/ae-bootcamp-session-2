@@ -19,8 +19,11 @@ class TodoPage {
 
   async addItem(name) {
     await this.newItemInput.fill(name);
+    const responsePromise = this.page.waitForResponse(
+      (res) => res.url().includes('/api/items') && res.request().method() === 'POST'
+    );
     await this.addButton.click();
-    await this.page.waitForResponse((res) => res.url().includes('/api/items') && res.request().method() === 'POST');
+    await responsePromise;
   }
 
   async getItemByName(name) {
@@ -29,8 +32,11 @@ class TodoPage {
 
   async deleteItem(name) {
     const item = await this.getItemByName(name);
+    const responsePromise = this.page.waitForResponse(
+      (res) => res.url().includes('/api/items') && res.request().method() === 'DELETE'
+    );
     await item.getByRole('button', { name: new RegExp(`delete ${name}`, 'i') }).click();
-    await this.page.waitForResponse((res) => res.url().includes('/api/items') && res.request().method() === 'DELETE');
+    await responsePromise;
   }
 
   async startEditItem(name) {
@@ -39,9 +45,15 @@ class TodoPage {
   }
 
   async saveEdit(newName, currentName) {
-    await this.page.getByRole('textbox').filter({ hasValue: currentName }).fill(newName);
+    const editInput = this.page
+      .getByRole('listitem', { name: new RegExp(`Task: ${currentName}`, 'i') })
+      .getByRole('textbox');
+    await editInput.fill(newName);
+    const responsePromise = this.page.waitForResponse(
+      (res) => res.url().includes('/api/items') && res.request().method() === 'PUT'
+    );
     await this.page.getByRole('button', { name: /save/i }).click();
-    await this.page.waitForResponse((res) => res.url().includes('/api/items') && res.request().method() === 'PUT');
+    await responsePromise;
   }
 
   async cancelEdit() {

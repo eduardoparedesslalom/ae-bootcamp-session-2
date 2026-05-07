@@ -53,16 +53,46 @@ test.describe('Todo Workflow', () => {
     await expect(page.getByText(originalName)).toBeVisible();
 
     await todoPage.startEditItem(originalName);
-    await page.getByRole('textbox').fill('Should Not Save');
+    await page.getByRole('listitem', { name: new RegExp(`Task: ${originalName}`, 'i') }).getByRole('textbox').fill('Should Not Save');
     await todoPage.cancelEdit();
 
     await expect(page.getByText(originalName)).toBeVisible();
     await expect(page.getByText('Should Not Save')).not.toBeVisible();
   });
 
-  test('each task has a drag handle', async () => {
+  test('each task has a drag handle and can drag an item to first position', async ({ page }) => {
     const dragHandles = await todoPage.page.getByRole('button', { name: /drag/i }).all();
     expect(dragHandles.length).toBeGreaterThan(0);
+
+    const firstTask = `First Task ${Date.now()}`;
+    const secondTask = `Second Task ${Date.now()}`;
+    await todoPage.addItem(firstTask);
+    await todoPage.addItem(secondTask);
+
+    // Drag secondTask up to firstTask's position
+    const handleFirst = await todoPage.getDragHandle(firstTask);
+    const handleSecond = await todoPage.getDragHandle(secondTask);
+
+    const boxFirst = await handleFirst.boundingBox();
+    const boxSecond = await handleSecond.boundingBox();
+
+    await page.mouse.move(boxSecond.x + boxSecond.width / 2, boxSecond.y + boxSecond.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(boxFirst.x + boxFirst.width / 2, boxFirst.y + boxFirst.height / 2, { steps: 15 });
+    await page.mouse.up();
+
+    await page.waitForTimeout(300);
+
+    // Verify secondTask is now above firstTask in the list
+    const allItemsAfter = await page.getByRole('listitem').all();
+    let secondTaskNewIndex = -1;
+    let firstTaskNewIndex = -1;
+    for (let i = 0; i < allItemsAfter.length; i++) {
+      const text = await allItemsAfter[i].textContent();
+      if (text.includes(secondTask)) secondTaskNewIndex = i;
+      if (text.includes(firstTask)) firstTaskNewIndex = i;
+    }
+    expect(secondTaskNewIndex).toBeLessThan(firstTaskNewIndex);
   });
 
   test('does not add a task when the input is empty', async ({ page }) => {
